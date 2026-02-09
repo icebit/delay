@@ -1,0 +1,22 @@
+# IDE/Build Folders
+Builds/
+**/Builds/
+JuceLibraryCode/
+**JuceLibraryCode/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Build artifacts and temporary files
+*.o
+*.obj
+*.so
+*.a
+*.lib
+*.dll
+*.exe
+*.bin
+*.apk
+*.ipa
+*.app
