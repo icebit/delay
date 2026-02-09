@@ -24,9 +24,6 @@ DelayAudioProcessor::DelayAudioProcessor()
 
 #endif
 {
-    auto& reverb = processorChain.template get<Reverb>();
-    reverb.setRoomSize(0.5f);
-    reverb.setDecayTime(1.0f);
 }
 
 DelayAudioProcessor::~DelayAudioProcessor()
@@ -107,8 +104,12 @@ void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = juce::jmax(getTotalNumInputChannels(), getTotalNumOutputChannels());
 
-    processorChain.prepare(spec);
+    int maxDelaySamples = sampleRate * 5.0;
 
+    delayLines.clear();
+    for(int i = 0; i < getTotalNumInputChannels(); ++i) {
+        delayLines.emplace_back(maxDelaySamples, sampleRate);
+    }
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -150,33 +151,24 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    float delayTimeMs = parameters.getRawParameterValue("delayTime")->load();
+    float feedback = 0.0;
+    float mix = parameters.getRawParameterValue("mix")->load();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    for(int channel = 0; channel < totalNumInputChannels; ++channel) {
+    auto* channelData = buffer.getWritePointer(channel);
+        auto& delayLine = delayLines[channel];
 
+        delayLine.setDelayTime(delayTimeMs * 0.001f * getSampleRate());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    /*for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-        auto gain = parameters.getRawParameterValue("gain")->load();
+        for(int sample = 0; sample < totalNumInputChannels; ++sample) {
+            float input = channelData[sample];
+            float delayed= delayLine.processSample(input);
 
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            channelData[sample] *= gain;
-    }*/
-
-    //(buffer, buffer.getNumSamples());
+            float output = input * (1.0f - mix) + delayed * mix;
+            channelData[sample] = output;
+        }
+    }
 }
 
 //==============================================================================
@@ -220,13 +212,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DelayAudioProcessor::createP
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>("gain", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>("tone", "Tone", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("delayTime", "Delay Time", juce::NormalisableRange<float>(0.0f, 2000.0f, 1.0f), 500.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("mix", "Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
 
     return layout;
-}
-
-void DelayAudioProcessor::reset() noexcept
-{
-    processorChain.reset();
 }

@@ -1,7 +1,7 @@
 CompileFlags:
   Add:
     - "-I/Users/samharrison/Documents/JUCE/modules"
-    - "-I/Users/samharrison/Documents/GitHub/tubeamp/JuceLibraryCode"
+    - "-I/Users/samharrison/Documents/GitHub/delay/JuceLibraryCode"
     - "-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1"
     - "-DJUCE_STRICT_REFCOUNTEDPOINTER=1"
     - "-DJUCE_VST3_CAN_REPLACE_VST2=0"

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "DelayLine.h"
 
 //==============================================================================
 /**
@@ -53,14 +54,11 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void reset() noexcept override;
-
     juce::AudioProcessorValueTreeState parameters;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    juce::dsp::ProcessorChain<juce::dsp::Gain<float>, juce::dsp::Reverb> processorChain;
-
 private:
+    std::vector<DelayLine> delayLines;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelayAudioProcessor)
 };
