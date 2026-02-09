@@ -1,7 +1,9 @@
 #include "DelayLine.h"
+#include <JuceHeader.h>
 
 DelayLine::DelayLine(int maxDelayInSamples, int sampleRate) {
     buffer.resize(maxDelayInSamples, 0.0f);
+    setDelayTime(0.5f * sampleRate);  // Default 500ms delay
 }
 
 float DelayLine::processSample(float inputSample) {
@@ -17,5 +19,5 @@ float DelayLine::processSample(float inputSample) {
 }
 
 void DelayLine::setDelayTime(int delaySamples) {
-    delayInSamples = delaySamples;
+    delayInSamples = juce::jlimit(0, (int)buffer.size() - 1, delaySamples);
 }

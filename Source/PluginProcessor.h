@@ -9,7 +9,6 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "DelayLine.h"
 
 //==============================================================================
 /**
@@ -58,7 +57,8 @@ public:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
 private:
-    std::vector<DelayLine> delayLines;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { 220500 };
+    double currentSampleRate = 44100.0;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelayAudioProcessor)
 };

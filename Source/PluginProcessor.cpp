@@ -20,9 +20,8 @@ DelayAudioProcessor::DelayAudioProcessor()
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
                        ),
-    parameters(*this, nullptr, "Parameters", createParameterLayout())
-
 #endif
+    parameters(*this, nullptr, "Parameters", createParameterLayout())
 {
 }
 
@@ -95,21 +94,16 @@ void DelayAudioProcessor::changeProgramName (int index, const juce::String& newN
 //==============================================================================
 void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    currentSampleRate = sampleRate;
 
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    //
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = juce::jmax(getTotalNumInputChannels(), getTotalNumOutputChannels());
+    spec.numChannels = getTotalNumInputChannels();
 
-    int maxDelaySamples = sampleRate * 5.0;
-
-    delayLines.clear();
-    for(int i = 0; i < getTotalNumInputChannels(); ++i) {
-        delayLines.emplace_back(maxDelaySamples, sampleRate);
-    }
+    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 5.0));
+    delayLine.prepare(spec);
+    delayLine.reset();
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -146,27 +140,33 @@ bool DelayAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
 
 void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
+
     float delayTimeMs = parameters.getRawParameterValue("delayTime")->load();
-    float feedback = 0.0;
     float mix = parameters.getRawParameterValue("mix")->load();
+    float delayInSamples = delayTimeMs * 0.001f * static_cast<float>(currentSampleRate);
 
-    for(int channel = 0; channel < totalNumInputChannels; ++channel) {
-    auto* channelData = buffer.getWritePointer(channel);
-        auto& delayLine = delayLines[channel];
+    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    {
+        auto* channelData = buffer.getWritePointer(channel);
 
-        delayLine.setDelayTime(delayTimeMs * 0.001f * getSampleRate());
-
-        for(int sample = 0; sample < totalNumInputChannels; ++sample) {
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
             float input = channelData[sample];
-            float delayed= delayLine.processSample(input);
 
-            float output = input * (1.0f - mix) + delayed * mix;
-            channelData[sample] = output;
+            // Push current sample into delay buffer
+            delayLine.pushSample(channel, input);
+
+            // Pop delayed sample (with Lagrange interpolation)
+            float delayed = delayLine.popSample(channel, delayInSamples);
+
+            // Mix dry and wet
+            channelData[sample] = input * (1.0f - mix) + delayed * mix;
         }
     }
 }
