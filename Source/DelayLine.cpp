@@ -7,7 +7,7 @@ DelayLine::DelayLine(int maxDelayInSamples, int sampleRate) {
 }
 
 float DelayLine::processSample(float inputSample) {
-    int readIndex = (writeIndex - delayInSamples + buffer.size()) % buffer.size();
+    int readIndex = (writeIndex - delayInSamples) % buffer.size();
 
     float delayedSample = buffer[readIndex];
 
