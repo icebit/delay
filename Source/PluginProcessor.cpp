@@ -92,18 +92,30 @@ void DelayAudioProcessor::changeProgramName (int index, const juce::String& newN
 }
 
 //==============================================================================
+void DelayAudioProcessor::updateDelayLineSize()
+{
+    auto delayLineSizeSamples = (size_t) std::ceil (maxDelayTime * currentSampleRate);
+    for (auto& dline : delayLines)
+        dline.resize (delayLineSizeSamples);
+}
+
+void DelayAudioProcessor::updateDelayTime() noexcept
+{
+    for (size_t ch = 0; ch < maxNumChannels; ++ch)
+    {
+        float delayTimeMs = parameters.getRawParameterValue("delayTime")->load();
+        delayTimesSample[ch] = (size_t) juce::roundToInt (delayTimeMs * 0.001f * currentSampleRate);
+    }
+}
+
 void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    updateDelayLineSize();
+    updateDelayTime();
 
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = getTotalNumInputChannels();
-
-    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 5.0));
-    delayLine.prepare(spec);
-    delayLine.reset();
+    for (auto& dline : delayLines)
+        dline.clear();
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -147,26 +159,23 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    float delayTimeMs = parameters.getRawParameterValue("delayTime")->load();
-    float mix = parameters.getRawParameterValue("mix")->load();
-    float delayInSamples = delayTimeMs * 0.001f * static_cast<float>(currentSampleRate);
+    updateDelayTime();
+    wetLevel = parameters.getRawParameterValue("mix")->load();
 
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    for (size_t channel = 0; channel < (size_t) totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer(channel);
+        auto* channelData = buffer.getWritePointer ((int) channel);
+        auto& dline = delayLines[channel];
+        auto delayTime = delayTimesSample[channel];
 
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
-            float input = channelData[sample];
-
-            // Push current sample into delay buffer
-            delayLine.pushSample(channel, input);
-
-            // Pop delayed sample (with Lagrange interpolation)
-            float delayed = delayLine.popSample(channel, delayInSamples);
-
-            // Mix dry and wet
-            channelData[sample] = input * (1.0f - mix) + delayed * mix;
+            auto delayedSample = dline.get(delayTime);
+            auto inputSample = channelData[i];
+            auto dlineInputSample = std::tanh(inputSample + feedback * delayedSample);
+            dline.push(dlineInputSample);
+            auto outputSample = inputSample + wetLevel * delayedSample;
+            channelData[i] = outputSample;
         }
     }
 }
