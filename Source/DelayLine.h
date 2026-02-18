@@ -4,7 +4,7 @@
 
 class DelayLine {
 public:
-    DelayLine(int maxDelayInSamples, int sampleRate);
+    DelayLine(int maxDelayInSamples);
 
     float processSample(float inputSample);
     void setDelayTime(int delaySamples);

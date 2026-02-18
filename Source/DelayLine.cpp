@@ -1,13 +1,13 @@
 #include "DelayLine.h"
 #include <JuceHeader.h>
 
-DelayLine::DelayLine(int maxDelayInSamples, int sampleRate) {
+DelayLine::DelayLine(int maxDelayInSamples) {
     buffer.resize(maxDelayInSamples, 0.0f);
-    setDelayTime(0.5f * sampleRate);  // Default 500ms delay
+    setDelayTime(0.5f * 44000);
 }
 
 float DelayLine::processSample(float inputSample) {
-    int readIndex = (writeIndex - delayInSamples + buffer.size()) % buffer.size();
+    int readIndex = (writeIndex - delayInSamples) % static_cast<int>(buffer.size()); // UNSAFE
 
     float delayedSample = buffer[readIndex];
 

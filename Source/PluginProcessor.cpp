@@ -21,7 +21,8 @@ DelayAudioProcessor::DelayAudioProcessor()
                      #endif
                        ),
 #endif
-    parameters(*this, nullptr, "Parameters", createParameterLayout())
+    parameters(*this, nullptr, "Parameters", createParameterLayout()),
+    delayLine(44000)
 {
 }
 
@@ -101,9 +102,9 @@ void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumInputChannels();
 
-    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 5.0));
-    delayLine.prepare(spec);
-    delayLine.reset();
+    // delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 5.0));
+    // delayLine.prepare(spec);
+    // delayLine.reset();
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -160,13 +161,10 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             float input = channelData[sample];
 
             // Push current sample into delay buffer
-            delayLine.pushSample(channel, input);
-
-            // Pop delayed sample (with Lagrange interpolation)
-            float delayed = delayLine.popSample(channel, delayInSamples);
+            float output = delayLine.processSample(input);
 
             // Mix dry and wet
-            channelData[sample] = input * (1.0f - mix) + delayed * mix;
+            channelData[sample] = input * (1.0f - mix) + output * mix;
         }
     }
 }

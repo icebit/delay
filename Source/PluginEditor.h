@@ -36,7 +36,6 @@ private:
     juce::Label delayTimeLabel;
     juce::Label mixLabel;
 
-
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
 };
