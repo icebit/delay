@@ -105,7 +105,7 @@ void DelayAudioProcessor::generateRandomDelayTimes()
     for (size_t channel = 0; channel < maxNumChannels; channel++) {
         for (size_t i = 0; i < numTaps; i++) {
             float r = random.nextFloat();
-            float ms = 30.0f + r * 20.0f;
+            float ms = baseDelayMs + r * deviationMs;
             delayTimesSample[channel][i] = static_cast<size_t>(ms * 0.001f * currentSampleRate);
         }
     }

@@ -59,9 +59,9 @@ public:
 
 private:
     static constexpr size_t maxNumChannels = 2;
-    static constexpr size_t numTaps = 1000;
-    static constexpr float baseDelayMs = 40.0f;
-    static constexpr float deviationMs = 10.0f;
+    static constexpr size_t numTaps = 50;
+    static constexpr float baseDelayMs = 10.0f;
+    static constexpr float deviationMs = 4000.0f;
 
     std::array<std::vector<float>, maxNumChannels> circularBuffers;
     std::array<size_t, maxNumChannels> writeIndices {};
