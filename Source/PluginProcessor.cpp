@@ -94,28 +94,29 @@ void DelayAudioProcessor::changeProgramName (int index, const juce::String& newN
 //==============================================================================
 void DelayAudioProcessor::updateDelayLineSize()
 {
-    auto delayLineSizeSamples = (size_t) std::ceil (maxDelayTime * currentSampleRate);
-    for (auto& dline : delayLines)
-        dline.resize (delayLineSizeSamples);
+    bufferSize = (size_t) std::ceil ((baseDelayMs + deviationMs) * 0.001 * currentSampleRate) + 1;
+    for (auto& buf : circularBuffers)
+        buf.assign (bufferSize, 0.0f);
+    writeIndices.fill (0);
 }
 
-void DelayAudioProcessor::updateDelayTime() noexcept
+void DelayAudioProcessor::generateRandomDelayTimes()
 {
-    for (size_t ch = 0; ch < maxNumChannels; ++ch)
-    {
-        float delayTimeMs = parameters.getRawParameterValue("delayTime")->load();
-        delayTimesSample[ch] = (size_t) juce::roundToInt (delayTimeMs * 0.001f * currentSampleRate);
+    for (size_t channel = 0; channel < maxNumChannels; channel++) {
+        for (size_t i = 0; i < numTaps; i++) {
+            float r = random.nextFloat();
+            float ms = 30.0f + r * 20.0f;
+            delayTimesSample[channel][i] = static_cast<size_t>(ms * 0.001f * currentSampleRate);
+        }
     }
 }
 
 void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    random.setSeed (42);
     updateDelayLineSize();
-    updateDelayTime();
-
-    for (auto& dline : delayLines)
-        dline.clear();
+    generateRandomDelayTimes();
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -159,24 +160,33 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    updateDelayTime();
     wetLevel = parameters.getRawParameterValue("mix")->load();
+    constexpr float invNumTaps = 1.0f / static_cast<float>(numTaps);
 
     for (size_t channel = 0; channel < (size_t) totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer ((int) channel);
-        auto& dline = delayLines[channel];
-        auto delayTime = delayTimesSample[channel];
+        auto* buf = circularBuffers[channel].data();
+        auto writeIdx = writeIndices[channel];
+        auto& tapDelays = delayTimesSample[channel];
 
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
-            auto delayedSample = dline.get(delayTime);
+            float sum = 0.0f;
+            for (size_t t = 0; t < numTaps; ++t)
+            {
+                auto readIdx = (writeIdx + bufferSize - tapDelays[t]) % bufferSize;
+                sum += buf[readIdx];
+            }
+
+            auto averaged = sum * invNumTaps;
             auto inputSample = channelData[i];
-            auto dlineInputSample = std::tanh(inputSample + feedback * delayedSample);
-            dline.push(dlineInputSample);
-            auto outputSample = inputSample + wetLevel * delayedSample;
-            channelData[i] = outputSample;
+            buf[writeIdx] = std::tanh (inputSample + feedback * averaged);
+            writeIdx = (writeIdx + 1) % bufferSize;
+            channelData[i] = inputSample + wetLevel * averaged;
         }
+
+        writeIndices[channel] = writeIdx;
     }
 }
 

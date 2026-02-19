@@ -59,15 +59,21 @@ public:
 
 private:
     static constexpr size_t maxNumChannels = 2;
-    std::array<DelayLine<float>, maxNumChannels> delayLines;
-    std::array<size_t, maxNumChannels> delayTimesSample {};
+    static constexpr size_t numTaps = 1000;
+    static constexpr float baseDelayMs = 40.0f;
+    static constexpr float deviationMs = 10.0f;
+
+    std::array<std::vector<float>, maxNumChannels> circularBuffers;
+    std::array<size_t, maxNumChannels> writeIndices {};
+    size_t bufferSize = 0;
+    std::array<std::array<size_t, numTaps>, maxNumChannels> delayTimesSample {};
+    juce::Random random;
     float feedback = 0.5f;
     float wetLevel = 0.8f;
-    float maxDelayTime = 5.0f;
     double currentSampleRate = 44100.0;
 
     void updateDelayLineSize();
-    void updateDelayTime() noexcept;
+    void generateRandomDelayTimes();
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelayAudioProcessor)
 };
