@@ -59,16 +59,14 @@ public:
 
 private:
     static constexpr size_t maxNumChannels = 2;
-    static constexpr size_t numTaps = 50;
-    static constexpr float baseDelayMs = 10.0f;
-    static constexpr float deviationMs = 4000.0f;
+    static constexpr size_t numCombFilters = 8;
+    static constexpr float baseDelayMs = 300.0f;
+    static constexpr float deviationMs = 130.0f;
 
-    std::array<std::vector<float>, maxNumChannels> circularBuffers;
-    std::array<size_t, maxNumChannels> writeIndices {};
-    size_t bufferSize = 0;
-    std::array<std::array<size_t, numTaps>, maxNumChannels> delayTimesSample {};
+    std::array<std::array<DelayLine<float>, numCombFilters>, maxNumChannels> delayLines;
+    std::array<std::array<size_t, numCombFilters>, maxNumChannels> delayTimesSample {};
     juce::Random random;
-    float feedback = 0.5f;
+    float feedback = 0.9f;
     float wetLevel = 0.8f;
     double currentSampleRate = 44100.0;
 
