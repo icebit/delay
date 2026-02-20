@@ -165,7 +165,7 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         buffer.clear (i, 0, buffer.getNumSamples());
 
     wetLevel = parameters.getRawParameterValue("mix")->load();
-    constexpr float combGain = 2.0f / static_cast<float>(numCombFilters);
+    constexpr float combGain = 1.0f / static_cast<float>(numCombFilters);
 
     for (size_t channel = 0; channel < (size_t) totalNumInputChannels; ++channel)
     {
@@ -181,7 +181,7 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             for (size_t c = 0; c < numCombFilters; ++c)
             {
                 auto delayed = lines[c].get (delays[c]);
-                lines[c].push (std::tanh (inputSample + feedback * delayed));
+                lines[c].push ((inputSample + feedback * delayed));
                 sum += delayed;
             }
 
