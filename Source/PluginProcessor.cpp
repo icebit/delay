@@ -92,29 +92,31 @@ void DelayAudioProcessor::changeProgramName (int index, const juce::String& newN
 {
 }
 
-void DelayAudioProcessor::generateRandomDelayTimes()
+void DelayAudioProcessor::generateRandomDelayTimes (float baseMs, float devMs)
 {
+    random.setSeed (42);
     for (size_t i = 0; i < delayLines.size(); i++) {
         float r = random.nextFloat();
-        float ms = (baseDelayMs - deviationMs) + r * (2.0f * deviationMs);
-        delayLines[i].setDelay(static_cast<size_t>(ms * 0.001f * currentSampleRate));
+        float ms = juce::jmax (1.0f, (baseMs - devMs) + r * (2.0f * devMs));
+        delayLines[i].setDelay (ms * 0.001f * (float) currentSampleRate);
     }
 }
 
 void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
-    random.setSeed (42);
 
-    juce::dsp::ProcessSpec spec {sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumInputChannels() };
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, (juce::uint32) getTotalNumInputChannels() };
 
     for (auto& d : delayLines)
     {
-        d.setMaximumDelayInSamples ((int) (0.001 * (baseDelayMs + deviationMs) * sampleRate) + 1);
-        d.prepare(spec);
+        d.setMaximumDelayInSamples ((int) (0.3 * sampleRate) + 1);
+        d.prepare (spec);
     }
 
-    generateRandomDelayTimes();
+    auto baseMs = parameters.getRawParameterValue ("size")->load();
+    auto devMs = parameters.getRawParameterValue ("spread")->load();
+    generateRandomDelayTimes (baseMs, devMs);
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -158,8 +160,13 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    wetLevel = parameters.getRawParameterValue("mix")->load();
+    auto baseMs = parameters.getRawParameterValue ("size")->load();
+    auto devMs = parameters.getRawParameterValue ("spread")->load();
+    auto fb = parameters.getRawParameterValue ("feedback")->load();
+    auto wet = parameters.getRawParameterValue ("mix")->load();
     constexpr float combGain = 1.0f / static_cast<float>(numCombFilters);
+
+    generateRandomDelayTimes (baseMs, devMs);
 
     for (size_t channel = 0; channel < (size_t) totalNumInputChannels; ++channel)
     {
@@ -172,12 +179,12 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
             for (size_t c = 0; c < numCombFilters; ++c)
             {
-                auto delayed = delayLines[c].popSample(channel);
-                delayLines[c].pushSample(channel, (inputSample + feedback * delayed));
+                auto delayed = delayLines[c].popSample ((int) channel);
+                delayLines[c].pushSample ((int) channel, std::tanh (inputSample + fb * delayed));
                 sum += delayed;
             }
 
-            channelData[i] = inputSample * (1.0f - wetLevel) + wetLevel * sum * combGain;
+            channelData[i] = inputSample * (1.0f - wet) + wet * sum * combGain;
         }
     }
 }
@@ -223,7 +230,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DelayAudioProcessor::createP
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>("delayTime", "Delay Time", juce::NormalisableRange<float>(0.0f, 2000.0f, 1.0f), 500.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("size", "Size", juce::NormalisableRange<float>(5.0f, 200.0f, 0.1f), 18.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("spread", "Spread", juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 10.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("feedback", "Feedback", juce::NormalisableRange<float>(0.0f, 0.98f, 0.01f), 0.9f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("mix", "Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
 
     return layout;

@@ -31,12 +31,11 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelayAudioProcessorEditor)
 
-    juce::Slider delayTimeSlider;
-    juce::Slider mixSlider;
-    juce::Label delayTimeLabel;
-    juce::Label mixLabel;
+    juce::Slider sizeSlider, spreadSlider, feedbackSlider, mixSlider;
+    juce::Label sizeLabel, spreadLabel, feedbackLabel, mixLabel;
 
-
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayTimeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sizeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> spreadAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> feedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
 };

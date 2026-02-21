@@ -58,18 +58,13 @@ public:
 
 private:
     static constexpr size_t numCombFilters = 8;
-    static constexpr float baseDelayMs = 18.0f;
-    static constexpr float deviationMs = 10.0f;
 
     std::array<juce::dsp::DelayLine<float>, numCombFilters> delayLines;
 
     juce::Random random;
-    float feedback = 0.9f;
-    float wetLevel = 0.8f;
     double currentSampleRate = 44100.0;
 
-    void updateDelayLineSize();
-    void generateRandomDelayTimes();
+    void generateRandomDelayTimes (float baseMs, float devMs);
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelayAudioProcessor)
 };
