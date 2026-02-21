@@ -23,6 +23,7 @@ DelayAudioProcessor::DelayAudioProcessor()
 #endif
     parameters(*this, nullptr, "Parameters", createParameterLayout())
 {
+
 }
 
 DelayAudioProcessor::~DelayAudioProcessor()
@@ -91,23 +92,12 @@ void DelayAudioProcessor::changeProgramName (int index, const juce::String& newN
 {
 }
 
-//==============================================================================
-void DelayAudioProcessor::updateDelayLineSize()
-{
-    auto maxSamples = (size_t) std::ceil ((baseDelayMs + deviationMs) * 0.001 * currentSampleRate) + 1;
-    for (auto& channelLines : delayLines)
-        for (auto& dline : channelLines)
-            dline.resize (maxSamples);
-}
-
 void DelayAudioProcessor::generateRandomDelayTimes()
 {
-    for (size_t channel = 0; channel < maxNumChannels; channel++) {
-        for (size_t i = 0; i < numCombFilters; i++) {
-            float r = random.nextFloat();
-            float ms = (baseDelayMs - deviationMs) + r * (2.0f * deviationMs);
-            delayTimesSample[channel][i] = static_cast<size_t>(ms * 0.001f * currentSampleRate);
-        }
+    for (size_t i = 0; i < delayLines.size(); i++) {
+        float r = random.nextFloat();
+        float ms = (baseDelayMs - deviationMs) + r * (2.0f * deviationMs);
+        delayLines[i].setDelay(static_cast<size_t>(ms * 0.001f * currentSampleRate));
     }
 }
 
@@ -115,12 +105,16 @@ void DelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     random.setSeed (42);
-    updateDelayLineSize();
-    generateRandomDelayTimes();
 
-    for (auto& channelLines : delayLines)
-        for (auto& dline : channelLines)
-            dline.clear();
+    juce::dsp::ProcessSpec spec {sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumInputChannels() };
+
+    for (auto& d : delayLines)
+    {
+        d.setMaximumDelayInSamples ((int) (0.001 * (baseDelayMs + deviationMs) * sampleRate) + 1);
+        d.prepare(spec);
+    }
+
+    generateRandomDelayTimes();
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -165,13 +159,11 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         buffer.clear (i, 0, buffer.getNumSamples());
 
     wetLevel = parameters.getRawParameterValue("mix")->load();
-    constexpr float combGain = 2.0f / static_cast<float>(numCombFilters);
+    constexpr float combGain = 1.0f / static_cast<float>(numCombFilters);
 
     for (size_t channel = 0; channel < (size_t) totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer ((int) channel);
-        auto& lines = delayLines[channel];
-        auto& delays = delayTimesSample[channel];
 
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
@@ -180,8 +172,8 @@ void DelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
             for (size_t c = 0; c < numCombFilters; ++c)
             {
-                auto delayed = lines[c].get (delays[c]);
-                lines[c].push (std::tanh (inputSample + feedback * delayed));
+                auto delayed = delayLines[c].popSample(channel);
+                delayLines[c].pushSample(channel, (inputSample + feedback * delayed));
                 sum += delayed;
             }
 

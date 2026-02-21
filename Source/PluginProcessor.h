@@ -9,7 +9,6 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "DelayLine.h"
 
 //==============================================================================
 /**
@@ -58,13 +57,12 @@ public:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
 private:
-    static constexpr size_t maxNumChannels = 2;
     static constexpr size_t numCombFilters = 8;
-    static constexpr float baseDelayMs = 300.0f;
-    static constexpr float deviationMs = 130.0f;
+    static constexpr float baseDelayMs = 18.0f;
+    static constexpr float deviationMs = 10.0f;
 
-    std::array<std::array<DelayLine<float>, numCombFilters>, maxNumChannels> delayLines;
-    std::array<std::array<size_t, numCombFilters>, maxNumChannels> delayTimesSample {};
+    std::array<juce::dsp::DelayLine<float>, numCombFilters> delayLines;
+
     juce::Random random;
     float feedback = 0.9f;
     float wetLevel = 0.8f;
